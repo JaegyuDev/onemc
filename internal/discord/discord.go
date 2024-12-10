@@ -63,30 +63,62 @@ var (
             options := i.ApplicationCommandData().Options
             content := ""
 
-            if len(options) == 0 {
-                content = "No subcommand provided. Please specify `start` or `stop`."
-            } else {
-                switch options[0].Name {
-                case "start":
-                    aws.StartInstanceByID(config.InstanceID)
-                case "stop":
-                    aws.StopInstanceByID(config.InstanceID)
-                default:
-                    content = "Unknown subcommand. Please use `start` or `stop`."
+            switch options[0].Name {
+            case "start":
+                content = "Starting server..."
+                err := s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+                    Type: discordgo.InteractionResponseChannelMessageWithSource,
+                    Data: &discordgo.InteractionResponseData{
+                        Content: content,
+                    },
+                })
+                if err != nil {
+                    log.Printf("Failed to respond to interaction: %v", err)
+                    return
+                }
+
+                aws.StartInstanceByID(config.InstanceID)
+                _, err = s.FollowupMessageCreate(i.Interaction, true, &discordgo.WebhookParams{
+                    Content: "Server successfully started",
+                })
+                if err != nil {
+                    log.Printf("Failed to send follow-up message: %v", err)
+                }
+
+            case "stop":
+                content = "Stopping server..."
+                err := s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+                    Type: discordgo.InteractionResponseChannelMessageWithSource,
+                    Data: &discordgo.InteractionResponseData{
+                        Content: content,
+                    },
+                })
+                if err != nil {
+                    log.Printf("Failed to respond to interaction: %v", err)
+                    return
+                }
+
+                aws.StopInstanceByID(config.InstanceID)
+                // Send follow-up message
+                _, err = s.FollowupMessageCreate(i.Interaction, true, &discordgo.WebhookParams{
+                    Content: "Server successfully stopped",
+                })
+                if err != nil {
+                    log.Printf("Failed to send follow-up message: %v", err)
+                }
+
+            default:
+                content = "Unknown subcommand. Please use `start` or `stop`."
+                err := s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+                    Type: discordgo.InteractionResponseChannelMessageWithSource,
+                    Data: &discordgo.InteractionResponseData{
+                        Content: content,
+                    },
+                })
+                if err != nil {
+                    log.Printf("Failed to respond to interaction: %v", err)
                 }
             }
-
-            err := s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
-                Type: discordgo.InteractionResponseChannelMessageWithSource,
-                Data: &discordgo.InteractionResponseData{
-                    Content: content,
-                },
-            })
-            if err != nil {
-                log.Printf("Failed to respond to interaction: %v", err)
-            }
-        },
-        "followups": func(s *discordgo.Session, i *discordgo.InteractionCreate) {
         },
     }
 )

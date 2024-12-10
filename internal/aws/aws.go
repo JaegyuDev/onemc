@@ -25,9 +25,10 @@ func init() {
 
 func StartInstanceByID(id string) {
     fmt.Printf("Starting instance %s...\n", id)
-    instances, err := ec2Client.StartInstances(context.Background(), &ec2.StartInstancesInput{
-        InstanceIds: []string{id},
-    })
+    instances, err := ec2Client.StartInstances(context.Background(),
+        &ec2.StartInstancesInput{
+            InstanceIds: []string{id},
+        })
     if err != nil {
         log.Fatal(err)
     }
@@ -45,7 +46,8 @@ func StartInstanceByID(id string) {
         state = instances.Reservations[0].Instances[0].State.Name
     }
 
-    fmt.Printf("Instance %q has started\n", *instances.StartingInstances[0].InstanceId)
+    fmt.Printf("Instance %q has started\n",
+        *instances.StartingInstances[0].InstanceId)
 }
 
 func StopInstanceByID(id string) {
@@ -71,5 +73,5 @@ func StopInstanceByID(id string) {
         state = instances.Reservations[0].Instances[0].State.Name
     }
 
-    fmt.Printf("Instance %q has started\n", *instances.StoppingInstances[0].InstanceId)
+    fmt.Printf("Instance %q has stopped\n", *instances.StoppingInstances[0].InstanceId)
 }
