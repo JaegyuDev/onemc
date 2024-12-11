@@ -14,6 +14,7 @@ var (
 	config  utils.Config
 	cToken  string
 	running bool
+	Running = running
 	online  int
 )
 
@@ -112,7 +113,7 @@ func fetchStats() (bool, int) {
 	return apiResponse.Data.Running, apiResponse.Data.Online
 }
 
-func updateStats() {
+func UpdateStats() {
 	running, online = fetchStats()
 }
 
@@ -164,7 +165,7 @@ func StopServer() error {
 }
 
 func StopQuery() bool {
-	updateStats()
+	UpdateStats()
 	if !running {
 		log.Println("Minecraft server isn't running")
 	}

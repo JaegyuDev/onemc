@@ -2,6 +2,7 @@ package discord
 
 import (
 	"flag"
+	"fmt"
 	"github.com/bwmarrin/discordgo"
 	"log"
 	"onemc/internal/aws"
@@ -18,6 +19,7 @@ var (
 
 var (
 	config utils.Config
+	status string
 )
 
 var s *discordgo.Session
@@ -54,6 +56,11 @@ var (
 				{
 					Name:        "stop",
 					Description: "stop the minecraft server instance",
+					Type:        discordgo.ApplicationCommandOptionSubCommand,
+				},
+				{
+					Name:        "status",
+					Description: "get the minecraft server status",
 					Type:        discordgo.ApplicationCommandOptionSubCommand,
 				},
 			},
@@ -119,6 +126,26 @@ var (
 				})
 				if err != nil {
 					log.Printf("Failed to send follow-up message: %v", err)
+				}
+			case "status":
+				crafty.UpdateStats()
+				switch crafty.Running {
+				case true:
+					status = "Running"
+				case false:
+					status = "Not running"
+				}
+
+				content = fmt.Sprintf("The server is currently %s", status)
+				err := s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+					Type: discordgo.InteractionResponseChannelMessageWithSource,
+					Data: &discordgo.InteractionResponseData{
+						Content: content,
+					},
+				})
+				if err != nil {
+					log.Printf("Failed to respond to interaction: %v", err)
+					return
 				}
 
 			default:

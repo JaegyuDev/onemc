@@ -29,6 +29,7 @@ func main() {
 					log.Println(err)
 				}
 				aws.StopInstanceByID(config.InstanceID)
+				log.Printf("Auto shutdown complete")
 			}
 		}
 	}()
