@@ -19,8 +19,6 @@ var (
 
 func init() {
 	utils.MustLoadConfig(&config)
-	cToken = fetchToken()
-	running, online = fetchStats()
 }
 
 func fetchToken() string {
@@ -119,7 +117,6 @@ func updateStats() {
 }
 
 func StopServer() error {
-	fetchToken()
 	url := fmt.Sprintf("%sservers/%s/action/stop_server", config.URL, config.ServerID)
 
 	httpClient := &http.Client{
@@ -159,7 +156,9 @@ func StopServer() error {
 		return fmt.Errorf("failed to decode response: %v", err)
 	}
 
-	fmt.Print(apiResponse.Status)
+	if apiResponse.Status == "ok" {
+		log.Printf("Minecraft server stopped!")
+	}
 
 	return nil
 }
@@ -170,13 +169,14 @@ func StopQuery() bool {
 		log.Println("Minecraft server isn't running")
 	}
 	if online > 0 {
-		log.Printf("Player() are currently online")
+		log.Printf("%v player(s) are currently online", online)
 		return false
 	}
 	return true
 }
 
 func StartServer() error {
+	cToken = fetchToken()
 	url := fmt.Sprintf("%sservers/%s/action/start_server", config.URL, config.ServerID)
 
 	httpClient := &http.Client{
@@ -216,7 +216,9 @@ func StartServer() error {
 		return fmt.Errorf("failed to decode response: %v", err)
 	}
 
-	fmt.Print(apiResponse.Status)
+	if apiResponse.Status == "ok" {
+		fmt.Print("Minecraft server started!")
+	}
 
 	return nil
 }

@@ -34,5 +34,4 @@ func main() {
 	}()
 	// blocks thread
 	discord.Run()
-
 }
