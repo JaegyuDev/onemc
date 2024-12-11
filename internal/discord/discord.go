@@ -5,6 +5,7 @@ import (
 	"github.com/bwmarrin/discordgo"
 	"log"
 	"onemc/internal/aws"
+	"onemc/internal/crafty"
 	"onemc/internal/utils"
 	"os"
 	"os/signal"
@@ -85,21 +86,22 @@ var (
 				if err != nil {
 					log.Printf("Failed to send follow-up message: %v", err)
 				}
-				//err = crafty.StartServer()
-				//if err != nil {
-				//	log.Printf("Failed to start instance: %v", err)
-				//}
+				time.Sleep(10 * time.Second)
+				err = crafty.StartServer()
+				if err != nil {
+					log.Printf("Failed to start instance, may not be online?: %v", err)
+				}
 
 			case "stop":
-				//err := crafty.StopServer()
-				//if err != nil {
-				//	log.Printf("Failed to stop server: %v", err)
-				//	return
-				//}
+				err := crafty.StopServer()
+				if err != nil {
+					log.Printf("Failed to stop server: %v", err)
+					return
+				}
 
 				content = "Stopping server..."
-				time.Sleep(10 * time.Minute)
-				err := s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+
+				err = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
 					Type: discordgo.InteractionResponseChannelMessageWithSource,
 					Data: &discordgo.InteractionResponseData{
 						Content: content,
