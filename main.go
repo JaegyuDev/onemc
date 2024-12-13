@@ -1,12 +1,9 @@
 package main
 
 import (
-	"log"
-	"onemc/internal/aws"
 	"onemc/internal/crafty"
 	"onemc/internal/discord"
 	"onemc/internal/utils"
-	"time"
 )
 
 func init() {
@@ -18,21 +15,7 @@ var (
 )
 
 func main() {
-	go func() {
-		for {
-			time.Sleep(5 * time.Minute)
-			log.Println("Checking auto shutdown")
-			stopQuery := crafty.StopQuery()
-			if stopQuery == true {
-				err := crafty.StopServer()
-				if err != nil {
-					log.Println(err)
-				}
-				aws.StopInstanceByID(config.InstanceID)
-				log.Printf("Auto shutdown complete")
-			}
-		}
-	}()
+	go crafty.AutoShutdown(config.InstanceID)
 	// blocks thread
 	discord.Run()
 }

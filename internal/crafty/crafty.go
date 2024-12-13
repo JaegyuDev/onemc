@@ -7,15 +7,17 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"onemc/internal/aws"
 	"onemc/internal/utils"
+	"time"
 )
 
 var (
-	config  utils.Config
-	cToken  string
-	running bool
-	Running = running
-	online  int
+	config             utils.Config
+	cToken             string
+	mcCurrentlyRunning bool
+	Running            = &mcCurrentlyRunning
+	countOnline        int
 )
 
 func init() {
@@ -76,9 +78,9 @@ func fetchStats() (bool, int) {
 	type APIResponse struct {
 		Status string `json:"status"`
 		Data   struct {
-			Online  int    `json:"online"`
+			Online  int    `json:"countOnline"`
 			Players string `json:"players"`
-			Running bool   `json:"running"`
+			Running bool   `json:"mcCurrentlyRunning"`
 		} `json:"data"`
 	}
 
@@ -107,23 +109,20 @@ func fetchStats() (bool, int) {
 		log.Fatalf("Failed to decode response body: %v", err)
 	}
 
-	//log.Printf("Response: %+v", apiResponse)
-
-	// Return the parsed values
 	return apiResponse.Data.Running, apiResponse.Data.Online
 }
 
 func UpdateStats() {
-	running, online = fetchStats()
+	mcCurrentlyRunning, countOnline = fetchStats()
 }
 
-func StopServer() error {
+func StopMCServer() error {
 	url := fmt.Sprintf("%sservers/%s/action/stop_server", config.URL, config.ServerID)
 
 	httpClient := &http.Client{
 		Transport: &http.Transport{
 			TLSClientConfig: &tls.Config{
-				InsecureSkipVerify: true, // Consider setting up proper TLS for production
+				InsecureSkipVerify: true,
 			},
 		},
 	}
@@ -137,7 +136,6 @@ func StopServer() error {
 		return fmt.Errorf("failed to create request: %v", err)
 	}
 
-	// Set headers before making the request
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("Authorization", "Bearer "+cToken)
 
@@ -147,7 +145,6 @@ func StopServer() error {
 	}
 	defer resp.Body.Close()
 
-	// Check the HTTP status code
 	if resp.StatusCode != http.StatusOK {
 		return fmt.Errorf("error with response: %s", resp.Status)
 	}
@@ -166,24 +163,24 @@ func StopServer() error {
 
 func StopQuery() bool {
 	UpdateStats()
-	if !running {
-		log.Println("Minecraft server isn't running")
+	if !mcCurrentlyRunning {
+		log.Println("Minecraft server isn't mcCurrentlyRunning")
 	}
-	if online > 0 {
-		log.Printf("%v player(s) are currently online", online)
+	if countOnline > 0 {
+		log.Printf("%v player(s) are currently countOnline", countOnline)
 		return false
 	}
 	return true
 }
 
-func StartServer() error {
+func StartMCServer() error {
 	cToken = fetchToken()
 	url := fmt.Sprintf("%sservers/%s/action/start_server", config.URL, config.ServerID)
 
 	httpClient := &http.Client{
 		Transport: &http.Transport{
 			TLSClientConfig: &tls.Config{
-				InsecureSkipVerify: true, // Consider setting up proper TLS for production
+				InsecureSkipVerify: true,
 			},
 		},
 	}
@@ -197,7 +194,6 @@ func StartServer() error {
 		return fmt.Errorf("failed to create request: %v", err)
 	}
 
-	// Set headers before making the request
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("Authorization", "Bearer "+cToken)
 
@@ -207,7 +203,6 @@ func StartServer() error {
 	}
 	defer resp.Body.Close()
 
-	// Check the HTTP status code
 	if resp.StatusCode != http.StatusOK {
 		return fmt.Errorf("error with response: %s", resp.Status)
 	}
@@ -222,4 +217,48 @@ func StartServer() error {
 	}
 
 	return nil
+}
+
+func AutoShutdown(id string) {
+	autoStopFlag := false
+
+	for autoStopFlag == false {
+		time.Sleep(30 * time.Second)
+		UpdateStats()
+		switch {
+		case aws.IsAWSInstanceRunning(id) == false:
+			autoStopFlag = false
+		case (mcCurrentlyRunning == true && countOnline == 0) == true:
+			autoStopFlag = true
+		}
+	}
+
+	//goland:noinspection GoDfaConstantCondition
+	for autoStopFlag == true {
+		var elapsed bool
+		timer := time.NewTimer(10 * time.Minute)
+		go func() {
+			<-timer.C
+			elapsed = true
+		}()
+
+		for elapsed == false {
+			time.Sleep(10 * time.Second)
+			if (mcCurrentlyRunning && countOnline > 0) == false {
+				autoStopFlag = false
+				timer.Stop()
+				fmt.Printf("Elapsed: %v\n", elapsed)
+				autoStopFlag = true
+				// TODO: Finish reset clause
+			}
+		}
+		<-timer.C
+		time.Sleep(1 * time.Second)
+		fmt.Printf("Timer elapsed. Stopping...\n")
+		err := StopMCServer()
+		if err != nil {
+			log.Printf("Failed to stop server: %v", err)
+		}
+		// TODO: Finish autostop. Mainly aws stuff. Handle cases where server isn't stopping.
+	}
 }

@@ -1,8 +1,9 @@
+// TODO: Send message on autostop initiate, cancel and success
+
 package discord
 
 import (
 	"flag"
-	"fmt"
 	"github.com/bwmarrin/discordgo"
 	"log"
 	"onemc/internal/aws"
@@ -86,7 +87,7 @@ var (
 					return
 				}
 
-				aws.StartInstanceByID(config.InstanceID)
+				aws.StartAWSInstanceByID(config.InstanceID)
 				_, err = s.FollowupMessageCreate(i.Interaction, true, &discordgo.WebhookParams{
 					Content: "Server successfully started",
 				})
@@ -94,13 +95,13 @@ var (
 					log.Printf("Failed to send follow-up message: %v", err)
 				}
 				time.Sleep(10 * time.Second)
-				err = crafty.StartServer()
+				err = crafty.StartMCServer()
 				if err != nil {
 					log.Printf("Failed to start instance, may not be online?: %v", err)
 				}
 
 			case "stop":
-				err := crafty.StopServer()
+				err := crafty.StopMCServer()
 				if err != nil {
 					log.Printf("Failed to stop server: %v", err)
 					return
@@ -119,7 +120,7 @@ var (
 					return
 				}
 
-				aws.StopInstanceByID(config.InstanceID)
+				aws.StopAWSInstanceByID(config.InstanceID)
 				// Send follow-up message
 				_, err = s.FollowupMessageCreate(i.Interaction, true, &discordgo.WebhookParams{
 					Content: "Server successfully stopped",
@@ -127,26 +128,28 @@ var (
 				if err != nil {
 					log.Printf("Failed to send follow-up message: %v", err)
 				}
-			case "status":
-				crafty.UpdateStats()
-				switch crafty.Running {
-				case true:
-					status = "Running"
-				case false:
-					status = "Not running"
-				}
 
-				content = fmt.Sprintf("The server is currently %s", status)
-				err := s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
-					Type: discordgo.InteractionResponseChannelMessageWithSource,
-					Data: &discordgo.InteractionResponseData{
-						Content: content,
-					},
-				})
-				if err != nil {
-					log.Printf("Failed to respond to interaction: %v", err)
-					return
-				}
+				// TODO: Make status command work
+			//case "status":
+			//	crafty.UpdateStats()
+			//	switch *crafty.Running {
+			//	case true:
+			//		status = "Running"
+			//	case false:
+			//		status = "Not running"
+			//	}
+			//
+			//	content = fmt.Sprintf("The server is currently %s", status)
+			//	err := s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+			//		Type: discordgo.InteractionResponseChannelMessageWithSource,
+			//		Data: &discordgo.InteractionResponseData{
+			//			Content: content,
+			//		},
+			//	})
+			//	if err != nil {
+			//		log.Printf("Failed to respond to interaction: %v", err)
+			//		return
+			//	}
 
 			default:
 				content = "Unknown subcommand. Please use `start` or `stop`."
