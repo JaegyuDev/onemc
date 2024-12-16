@@ -248,10 +248,9 @@ START:
 
 	//goland:noinspection GoDfaConstantCondition
 	for autoStopFlag == true {
-		for i := 0; i != 3; i++ {
+		for i := 0; i < 30; i++ {
 			time.Sleep(10 * time.Second)
 			UpdateStats()
-			fmt.Println(i)
 			if countOnline > 0 == true {
 				fmt.Println("Returning to start")
 				goto START
