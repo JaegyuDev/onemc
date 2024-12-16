@@ -48,4 +48,5 @@ func MustLoadConfig(config *Config) {
 	if err := json.NewDecoder(file).Decode(&config); err != nil {
 		log.Fatal(err)
 	}
+
 }

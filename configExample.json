@@ -1,0 +1,6 @@
+{
+    "instanceID": "[Target AWS Instance ID]",
+    "guildID": "[Discord Server ID]",
+    "url": "https://yourdomain:8443/api/v2/",
+    "serverID":"MC server ID from Crafty"
+}

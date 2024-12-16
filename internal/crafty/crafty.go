@@ -6,22 +6,36 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
+	"net"
 	"net/http"
+	"onemc/internal/aws"
 	"onemc/internal/utils"
+	"time"
 )
 
 var (
-	config  utils.Config
-	cToken  string
-	running bool
-	online  int
+	config             utils.Config
+	cToken             string
+	mcCurrentlyRunning bool
+	countOnline        int
 )
 
 func init() {
 	utils.MustLoadConfig(&config)
 }
 
+func CheckRunning() bool {
+	timeout := 2 * time.Second
+	_, err := net.DialTimeout("tcp", "mc.jaydent.uk:8443", timeout)
+	if err != nil {
+		log.Println("Site unreachable, error: ", err)
+		return false
+	}
+	return true
+}
+
 func fetchToken() string {
+	fmt.Println("Fetching token")
 	url := config.URL + "auth/login"
 	body := []byte(`{"username":"` + config.Username + `","password":"` + config.Password + `"}`)
 
@@ -63,6 +77,10 @@ func fetchToken() string {
 }
 
 func fetchStats() (bool, int) {
+	if cToken == "" {
+		cToken = fetchToken()
+	}
+	fmt.Println("Checking stats")
 	url := fmt.Sprintf("%sservers/%s/stats", config.URL, config.ServerID)
 	httpClient := &http.Client{
 		Transport: &http.Transport{
@@ -75,7 +93,7 @@ func fetchStats() (bool, int) {
 	type APIResponse struct {
 		Status string `json:"status"`
 		Data   struct {
-			Online  int    `json:"online"`
+			Online  int    `json:"countOnline"`
 			Players string `json:"players"`
 			Running bool   `json:"running"`
 		} `json:"data"`
@@ -106,23 +124,23 @@ func fetchStats() (bool, int) {
 		log.Fatalf("Failed to decode response body: %v", err)
 	}
 
-	//log.Printf("Response: %+v", apiResponse)
-
-	// Return the parsed values
 	return apiResponse.Data.Running, apiResponse.Data.Online
 }
 
-func updateStats() {
-	running, online = fetchStats()
+func UpdateStats() {
+	mcCurrentlyRunning, countOnline = fetchStats()
 }
 
-func StopServer() error {
+func StopMCServer() error {
+	if cToken == "" {
+		cToken = fetchToken()
+	}
 	url := fmt.Sprintf("%sservers/%s/action/stop_server", config.URL, config.ServerID)
 
 	httpClient := &http.Client{
 		Transport: &http.Transport{
 			TLSClientConfig: &tls.Config{
-				InsecureSkipVerify: true, // Consider setting up proper TLS for production
+				InsecureSkipVerify: true,
 			},
 		},
 	}
@@ -136,7 +154,6 @@ func StopServer() error {
 		return fmt.Errorf("failed to create request: %v", err)
 	}
 
-	// Set headers before making the request
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("Authorization", "Bearer "+cToken)
 
@@ -146,7 +163,6 @@ func StopServer() error {
 	}
 	defer resp.Body.Close()
 
-	// Check the HTTP status code
 	if resp.StatusCode != http.StatusOK {
 		return fmt.Errorf("error with response: %s", resp.Status)
 	}
@@ -163,26 +179,16 @@ func StopServer() error {
 	return nil
 }
 
-func StopQuery() bool {
-	updateStats()
-	if !running {
-		log.Println("Minecraft server isn't running")
+func StartMCServer() error {
+	if cToken == "" {
+		cToken = fetchToken()
 	}
-	if online > 0 {
-		log.Printf("%v player(s) are currently online", online)
-		return false
-	}
-	return true
-}
-
-func StartServer() error {
-	cToken = fetchToken()
 	url := fmt.Sprintf("%sservers/%s/action/start_server", config.URL, config.ServerID)
 
 	httpClient := &http.Client{
 		Transport: &http.Transport{
 			TLSClientConfig: &tls.Config{
-				InsecureSkipVerify: true, // Consider setting up proper TLS for production
+				InsecureSkipVerify: true,
 			},
 		},
 	}
@@ -196,7 +202,6 @@ func StartServer() error {
 		return fmt.Errorf("failed to create request: %v", err)
 	}
 
-	// Set headers before making the request
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("Authorization", "Bearer "+cToken)
 
@@ -206,7 +211,6 @@ func StartServer() error {
 	}
 	defer resp.Body.Close()
 
-	// Check the HTTP status code
 	if resp.StatusCode != http.StatusOK {
 		return fmt.Errorf("error with response: %s", resp.Status)
 	}
@@ -217,8 +221,51 @@ func StartServer() error {
 	}
 
 	if apiResponse.Status == "ok" {
-		fmt.Print("Minecraft server started!")
+		fmt.Println("Minecraft server started!")
 	}
 
 	return nil
+}
+
+func AutoShutdown(id string) {
+	fmt.Println("Auto Shutdown Monitoring")
+START:
+	autoStopFlag := false
+
+	for autoStopFlag == false {
+		time.Sleep(10 * time.Second)
+		UpdateStats()
+		fmt.Printf("Status: %v\nCount: %v\n", mcCurrentlyRunning, countOnline)
+		switch {
+		case aws.IsAWSInstanceRunning(id) == false:
+			autoStopFlag = false
+			fmt.Println("AWS instance not running")
+		case (mcCurrentlyRunning == true && countOnline == 0) == true:
+			autoStopFlag = true
+			fmt.Println("Autostop triggered")
+		}
+	}
+
+	//goland:noinspection GoDfaConstantCondition
+	for autoStopFlag == true {
+		for i := 0; i < 30; i++ {
+			time.Sleep(10 * time.Second)
+			UpdateStats()
+			if countOnline > 0 == true {
+				fmt.Println("Returning to start")
+				goto START
+			}
+		}
+		autoStopFlag = false
+		fmt.Printf("Stopping...\n")
+		err := StopMCServer()
+		if err != nil {
+			log.Printf("Failed to stop server: %v. AWS instance still running.", err)
+		} else {
+			// Only run if minecraft instance stops
+			time.Sleep(10 * time.Second)
+			aws.StopAWSInstanceByID(id)
+		}
+		cToken = ""
+	}
 }

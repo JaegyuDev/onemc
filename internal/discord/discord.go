@@ -1,3 +1,5 @@
+// TODO: Send message on autostop initiate, cancel and success
+
 package discord
 
 import (
@@ -56,6 +58,11 @@ var (
 					Description: "stop the minecraft server instance",
 					Type:        discordgo.ApplicationCommandOptionSubCommand,
 				},
+				{
+					Name:        "status",
+					Description: "get the minecraft server status",
+					Type:        discordgo.ApplicationCommandOptionSubCommand,
+				},
 			},
 		},
 	}
@@ -75,25 +82,28 @@ var (
 					},
 				})
 				if err != nil {
-					log.Printf("Failed to respond to interaction: %v", err)
+					log.Printf("Failed to respond to interaction: %v\n", err)
 					return
 				}
 
-				aws.StartInstanceByID(config.InstanceID)
+				aws.StartAWSInstanceByID(config.InstanceID)
 				_, err = s.FollowupMessageCreate(i.Interaction, true, &discordgo.WebhookParams{
 					Content: "Server successfully started",
 				})
 				if err != nil {
-					log.Printf("Failed to send follow-up message: %v", err)
+					log.Printf("Failed to send follow-up message: %v\n", err)
 				}
-				time.Sleep(10 * time.Second)
-				err = crafty.StartServer()
+				for crafty.CheckRunning() == false {
+					time.Sleep(5 * time.Second)
+				}
+
+				err = crafty.StartMCServer()
 				if err != nil {
-					log.Printf("Failed to start instance, may not be online?: %v", err)
+					log.Printf("Failed to start instance, may not be online?: %v\n", err)
 				}
 
 			case "stop":
-				err := crafty.StopServer()
+				err := crafty.StopMCServer()
 				if err != nil {
 					log.Printf("Failed to stop server: %v", err)
 					return
@@ -111,8 +121,8 @@ var (
 					log.Printf("Failed to respond to interaction: %v", err)
 					return
 				}
-
-				aws.StopInstanceByID(config.InstanceID)
+				time.Sleep(10 * time.Second)
+				aws.StopAWSInstanceByID(config.InstanceID)
 				// Send follow-up message
 				_, err = s.FollowupMessageCreate(i.Interaction, true, &discordgo.WebhookParams{
 					Content: "Server successfully stopped",
@@ -120,6 +130,28 @@ var (
 				if err != nil {
 					log.Printf("Failed to send follow-up message: %v", err)
 				}
+
+				// TODO: Make status command work
+			//case "status":
+			//	crafty.UpdateStats()
+			//	switch *crafty.Running {
+			//	case true:
+			//		status = "Running"
+			//	case false:
+			//		status = "Not running"
+			//	}
+			//
+			//	content = fmt.Sprintf("The server is currently %s", status)
+			//	err := s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+			//		Type: discordgo.InteractionResponseChannelMessageWithSource,
+			//		Data: &discordgo.InteractionResponseData{
+			//			Content: content,
+			//		},
+			//	})
+			//	if err != nil {
+			//		log.Printf("Failed to respond to interaction: %v", err)
+			//		return
+			//	}
 
 			default:
 				content = "Unknown subcommand. Please use `start` or `stop`."
