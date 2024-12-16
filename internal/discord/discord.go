@@ -20,7 +20,6 @@ var (
 
 var (
 	config utils.Config
-	status string
 )
 
 var s *discordgo.Session
@@ -83,7 +82,7 @@ var (
 					},
 				})
 				if err != nil {
-					log.Printf("Failed to respond to interaction: %v", err)
+					log.Printf("Failed to respond to interaction: %v\n", err)
 					return
 				}
 
@@ -92,12 +91,15 @@ var (
 					Content: "Server successfully started",
 				})
 				if err != nil {
-					log.Printf("Failed to send follow-up message: %v", err)
+					log.Printf("Failed to send follow-up message: %v\n", err)
 				}
-				time.Sleep(10 * time.Second)
+				for crafty.CheckRunning() == false {
+					time.Sleep(5 * time.Second)
+				}
+
 				err = crafty.StartMCServer()
 				if err != nil {
-					log.Printf("Failed to start instance, may not be online?: %v", err)
+					log.Printf("Failed to start instance, may not be online?: %v\n", err)
 				}
 
 			case "stop":
@@ -119,7 +121,7 @@ var (
 					log.Printf("Failed to respond to interaction: %v", err)
 					return
 				}
-
+				time.Sleep(10 * time.Second)
 				aws.StopAWSInstanceByID(config.InstanceID)
 				// Send follow-up message
 				_, err = s.FollowupMessageCreate(i.Interaction, true, &discordgo.WebhookParams{

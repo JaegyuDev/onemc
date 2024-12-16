@@ -25,12 +25,15 @@ func init() {
 
 func StartAWSInstanceByID(id string) {
 	fmt.Printf("Starting instance %s...\n", id)
+START:
 	instances, err := ec2Client.StartInstances(context.Background(),
 		&ec2.StartInstancesInput{
 			InstanceIds: []string{id},
 		})
 	if err != nil {
-		log.Fatal(err)
+		log.Println(err)
+		time.Sleep(5 * time.Second)
+		goto START
 	}
 
 	var state types.InstanceStateName
@@ -94,9 +97,9 @@ func IsAWSInstanceRunning(id string) bool {
 
 	// Check the state of the instance
 	// maybe check if these values are nil first
-	fmt.Printf("Instance ID: %v/n", id)
-	fmt.Printf("Instance State: %v\n", instanceState) // Prints the current state (running, stopped, etc.)
-	if instanceState == "true" {
+	//fmt.Printf("Instance ID: %v\n", id)
+	//fmt.Printf("Instance State: %v\n", instanceState) // Prints the current state (running, stopped, etc.)
+	if instanceState == "running" {
 		return true
 	}
 	return false
