@@ -8,6 +8,7 @@ import (
 	"log"
 	"net"
 	"net/http"
+	"net/url"
 	"onemc/internal/aws"
 	"onemc/internal/utils"
 	"time"
@@ -24,9 +25,21 @@ func init() {
 	utils.MustLoadConfig(&config)
 }
 
+func extractDomain(inputURL string) string {
+	// Parse the URL
+	parsedURL, err := url.Parse(inputURL)
+	if err != nil {
+	}
+
+	// Get the hostname (including subdomain if present)
+	host := parsedURL.Host
+
+	return host
+}
+
 func CheckRunning() bool {
 	timeout := 2 * time.Second
-	_, err := net.DialTimeout("tcp", "mc.jaydent.uk:8443", timeout)
+	_, err := net.DialTimeout("tcp", extractDomain(config.URL), timeout)
 	if err != nil {
 		log.Println("Site unreachable, error: ", err)
 		return false
@@ -93,7 +106,7 @@ func fetchStats() (bool, int) {
 	type APIResponse struct {
 		Status string `json:"status"`
 		Data   struct {
-			Online  int    `json:"countOnline"`
+			Online  int    `json:"online"`
 			Players string `json:"players"`
 			Running bool   `json:"running"`
 		} `json:"data"`
@@ -252,7 +265,7 @@ START:
 			time.Sleep(10 * time.Second)
 			UpdateStats()
 			if countOnline > 0 == true {
-				fmt.Println("Returning to start")
+				fmt.Println("Players detected! Resetting.")
 				goto START
 			}
 		}
