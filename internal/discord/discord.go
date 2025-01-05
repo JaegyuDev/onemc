@@ -90,16 +90,17 @@ var (
 				_, err = s.FollowupMessageCreate(i.Interaction, true, &discordgo.WebhookParams{
 					Content: "Server successfully started",
 				})
+
+				err = crafty.StartMCServer()
+				if err != nil {
+					log.Printf("Failed to start instance, may not be online?: %v\n", err)
+				}
+
 				if err != nil {
 					log.Printf("Failed to send follow-up message: %v\n", err)
 				}
 				for crafty.CheckRunning() == false {
 					time.Sleep(5 * time.Second)
-				}
-
-				err = crafty.StartMCServer()
-				if err != nil {
-					log.Printf("Failed to start instance, may not be online?: %v\n", err)
 				}
 
 			case "stop":
